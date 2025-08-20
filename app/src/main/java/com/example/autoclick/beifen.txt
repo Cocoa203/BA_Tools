@@ -1,0 +1,664 @@
+// 确保这行 package 和您的项目包名一致
+package com.example.autoclick;
+
+import android.app.Activity;
+import android.app.Notification;
+import android.app.NotificationChannel;
+import android.app.NotificationManager;
+import android.app.Service;
+import android.content.Context;
+import android.content.Intent;
+import android.content.pm.ServiceInfo;
+import android.graphics.Bitmap;
+import android.graphics.Color;
+import android.graphics.PixelFormat;
+import android.hardware.display.DisplayManager;
+import android.hardware.display.VirtualDisplay;
+import android.media.Image;
+import android.media.ImageReader;
+import android.media.projection.MediaProjection;
+import android.media.projection.MediaProjectionManager;
+import android.os.Build;
+import android.os.Handler;
+import android.os.HandlerThread;
+import android.os.IBinder;
+import android.util.DisplayMetrics;
+import android.util.Log;
+import android.view.WindowManager;
+import androidx.annotation.Nullable;
+import androidx.core.app.NotificationCompat;
+import androidx.localbroadcastmanager.content.LocalBroadcastManager;
+import java.nio.ByteBuffer;
+
+public class ScreenCaptureService extends Service {
+
+    // --- 公共常量 ---
+    public static final String EXTRA_RESULT_CODE = "extra_result_code";
+    public static final String EXTRA_DATA = "extra_data";
+    public static final String ACTION_FRAME_CAPTURED = "com.example.autoclick.FRAME_CAPTURED";
+    public static final String EXTRA_BITMAP = "extra_bitmap";
+
+    // --- 私有常量 ---
+    private static final String NOTIFICATION_CHANNEL_ID = "ScreenCapture";
+    private static final int NOTIFICATION_ID = 1;
+    private static final String HANDLER_THREAD_NAME = "ScreenCapture";
+
+    // --- 成员变量 ---
+    private MediaProjectionManager mediaProjectionManager;
+    private MediaProjection mediaProjection;
+    private VirtualDisplay virtualDisplay;
+    private ImageReader imageReader;
+    private HandlerThread handlerThread;
+    private Handler handler;
+    private long lastFrameTime = 0; // 用于节流，避免发送过多广播
+
+
+    private boolean isSearching = true; // 控制是否继续搜索
+    @Override
+    public void onCreate() {
+        super.onCreate();
+        mediaProjectionManager = (MediaProjectionManager) getSystemService(Context.MEDIA_PROJECTION_SERVICE);
+        handlerThread = new HandlerThread(HANDLER_THREAD_NAME);
+        handlerThread.start();
+        handler = new Handler(handlerThread.getLooper());
+    }
+
+    @Override
+    public int onStartCommand(Intent intent, int flags, int startId) {
+        createNotificationChannel();
+        Notification notification = createNotification();
+
+        // 正确处理前台服务启动
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            startForeground(NOTIFICATION_ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION);
+        } else {
+            startForeground(NOTIFICATION_ID, notification);
+        }
+
+        if (intent != null) {
+            int resultCode = intent.getIntExtra(EXTRA_RESULT_CODE, Activity.RESULT_CANCELED);
+            Intent data = intent.getParcelableExtra(EXTRA_DATA);
+            if (data != null) {
+                startCapture(resultCode, data);
+            }
+        }
+
+        return START_NOT_STICKY;
+    }
+
+    private void startCapture(int resultCode, Intent data) {
+        DisplayMetrics displayMetrics = getResources().getDisplayMetrics();
+        int screenWidth = displayMetrics.widthPixels;
+        int screenHeight = displayMetrics.heightPixels;
+        int screenDensity = displayMetrics.densityDpi;
+
+        // 1. 初始化 ImageReader，用于接收屏幕帧
+        imageReader = ImageReader.newInstance(screenWidth, screenHeight, PixelFormat.RGBA_8888, 2);
+        imageReader.setOnImageAvailableListener(reader -> {
+            Image image = null;
+            try {
+                image = reader.acquireLatestImage();
+                if (image != null) {
+                    // 节流处理：每秒最多处理并发送一帧
+                    findTargetAndClick(image);
+                    long currentTime = System.currentTimeMillis();
+                    if (currentTime - lastFrameTime > 1000) {
+                        lastFrameTime = currentTime;
+                        processImageAndBroadcast(image);
+                    }
+                }
+            } catch (Exception e) {
+                e.printStackTrace();
+            } finally {
+                if (image != null) {
+                    image.close(); // 关键：处理完必须 close，否则后续帧无法接收
+                }
+            }
+        }, handler);
+
+        // 2. 获取 MediaProjection 实例
+        mediaProjection = mediaProjectionManager.getMediaProjection(resultCode, data);
+        if (mediaProjection != null) {
+            mediaProjection.registerCallback(new MediaProjection.Callback() {
+                @Override
+                public void onStop() {
+                    // 用户通过系统UI停止了录制
+                    stopSelf();
+                }
+            }, handler);
+
+            // 3. 创建 VirtualDisplay
+            virtualDisplay = mediaProjection.createVirtualDisplay(
+                    "ScreenCapture",
+                    screenWidth, screenHeight, screenDensity,
+                    DisplayManager.VIRTUAL_DISPLAY_FLAG_AUTO_MIRROR,
+                    imageReader.getSurface(),
+                    null, handler
+            );
+        }
+    }
+
+    /**
+     * 处理捕获到的图像帧, 转换为Bitmap并发送广播
+     * @param image 图像帧
+     */
+    private void processImageAndBroadcast(Image image) {
+        Image.Plane[] planes = image.getPlanes();
+        ByteBuffer buffer = planes[0].getBuffer();
+        int pixelStride = planes[0].getPixelStride();
+        int rowStride = planes[0].getRowStride();
+        int rowPadding = rowStride - pixelStride * image.getWidth();
+
+        // 创建一个纠正了宽度的Bitmap
+        Bitmap bitmap = Bitmap.createBitmap(
+                image.getWidth() + rowPadding / pixelStride,
+                image.getHeight(),
+                Bitmap.Config.ARGB_8888
+        );
+        bitmap.copyPixelsFromBuffer(buffer);
+        // 如果需要，可以裁剪掉因rowPadding产生的多余空白部分
+        Bitmap croppedBitmap = Bitmap.createBitmap(bitmap, 0, 0, image.getWidth(), image.getHeight());
+
+        // 发送广播
+        Intent intent = new Intent(ACTION_FRAME_CAPTURED);
+        intent.putExtra(EXTRA_BITMAP, croppedBitmap);
+        LocalBroadcastManager.getInstance(this).sendBroadcast(intent);
+
+        // 释放临时的Bitmap内存
+        if (!bitmap.isRecycled()) {
+            bitmap.recycle();
+        }
+    }
+
+    /**
+     * 分析图像，找到目标颜色并调用无障碍服务进行点击
+     * @param image 屏幕图像帧
+     */
+    private void findTargetAndClick(Image image) {
+        // 1. 将 Image 转换为 Bitmap
+        Image.Plane[] planes = image.getPlanes();
+        ByteBuffer buffer = planes[0].getBuffer();
+        int pixelStride = planes[0].getPixelStride();
+        int rowStride = planes[0].getRowStride();
+        int rowPadding = rowStride - pixelStride * image.getWidth();
+
+        Bitmap bitmap = Bitmap.createBitmap(
+                image.getWidth() + rowPadding / pixelStride,
+                image.getHeight(),
+                Bitmap.Config.ARGB_8888
+        );
+        bitmap.copyPixelsFromBuffer(buffer);
+        Bitmap croppedBitmap = Bitmap.createBitmap(bitmap, 0, 0, image.getWidth(), image.getHeight());
+        bitmap.recycle();
+
+        // 2. 在 Bitmap 中寻找目标颜色 (例如：亮红色 FFFFFF00)
+        // 注意：这是一个非常耗时的操作，实际应用中需要优化
+        int targetColor = Color.RED; // 您可以改成任何 ARGB 颜色
+        int searchStep = 10; // 为了性能，每隔10个像素搜索一次
+
+        for (int y = 0; y < croppedBitmap.getHeight(); y += searchStep) {
+            for (int x = 0; x < croppedBitmap.getWidth(); x += searchStep) {
+                if (croppedBitmap.getPixel(x, y) == targetColor) {
+                    Log.d("AutoClick", "找到目标颜色! 坐标: (" + x + ", " + y + ")");
+                    // 3. 指挥无障碍服务去点击
+                    AutoClickAccessibilityService.performClick(x, y);
+
+                    // 找到后停止搜索，避免重复点击
+                    isSearching = false;
+
+                    // 释放Bitmap
+                    croppedBitmap.recycle();
+                    return; // 结束方法
+                }
+            }
+        }
+
+        // 没找到，释放Bitmap
+        croppedBitmap.recycle();
+    }
+
+
+    private void stopCapture() {
+        if (virtualDisplay != null) {
+            virtualDisplay.release();
+            virtualDisplay = null;
+        }
+        if (imageReader != null) {
+            imageReader.close();
+            imageReader = null;
+        }
+        if (mediaProjection != null) {
+            mediaProjection.stop();
+            mediaProjection = null;
+        }
+    }
+
+    @Override
+    public void onDestroy() {
+        super.onDestroy();
+        stopCapture();
+        if (handlerThread != null) {
+            handlerThread.quitSafely();
+            handlerThread = null;
+        }
+    }
+
+    private void createNotificationChannel() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            NotificationChannel serviceChannel = new NotificationChannel(
+                    NOTIFICATION_CHANNEL_ID,
+                    "Screen Capture Service Channel",
+                    NotificationManager.IMPORTANCE_LOW
+            );
+            NotificationManager manager = getSystemService(NotificationManager.class);
+            if (manager != null) {
+                manager.createNotificationChannel(serviceChannel);
+            }
+        }
+    }
+
+    private Notification createNotification() {
+        return new NotificationCompat.Builder(this, NOTIFICATION_CHANNEL_ID)
+                .setContentTitle("屏幕采集中")
+                .setContentText("应用正在获取您的屏幕内容。")
+                .setSmallIcon(R.mipmap.ic_launcher) // 确保你的项目中有这个图标
+                .build();
+    }
+
+    @Nullable
+    @Override
+    public IBinder onBind(Intent intent) {
+        return null;
+    }
+}
+
+//package com.example.autoclick;
+//
+//import android.app.Activity;
+//import android.app.Notification;
+//import android.app.NotificationChannel;
+//import android.app.NotificationManager;
+//import android.app.Service;
+//import android.content.Context;
+//import android.content.Intent;
+//import android.content.pm.ServiceInfo;
+//import android.graphics.Bitmap;
+//import android.graphics.BitmapFactory;
+//import android.graphics.Color;
+//import android.graphics.PixelFormat;
+//import android.hardware.display.DisplayManager;
+//import android.hardware.display.VirtualDisplay;
+//import android.media.Image;
+//import android.media.ImageReader;
+//import android.media.projection.MediaProjection;
+//import android.media.projection.MediaProjectionManager;
+//import android.os.Build;
+//import android.os.Handler;
+//import android.os.HandlerThread;
+//import android.os.IBinder;
+//import android.util.Log;
+//import androidx.annotation.Nullable;
+//import androidx.core.app.NotificationCompat;
+//import androidx.localbroadcastmanager.content.LocalBroadcastManager;
+//
+//import org.opencv.android.Utils;
+//import org.opencv.core.Core;
+//import org.opencv.core.Mat;
+//import org.opencv.core.Point;
+//import org.opencv.imgproc.Imgproc;
+//
+//import java.nio.ByteBuffer;
+//
+//public class ScreenCaptureService extends Service {
+//
+//    static {
+//        System.loadLibrary("autoclick");
+//    }
+//
+//    public static final String EXTRA_RESULT_CODE = "extra_result_code";
+//    public static final String EXTRA_DATA = "extra_data";
+//    public static final String ACTION_FRAME_CAPTURED = "com.example.autoclick.FRAME_CAPTURED";
+//    public static final String EXTRA_BITMAP = "extra_bitmap";
+//
+//    private static final String NOTIFICATION_CHANNEL_ID = "ScreenCapture";
+//    private static final int NOTIFICATION_ID = 1;
+//    private static final String HANDLER_THREAD_NAME = "ScreenCapture";
+//
+//    private MediaProjectionManager mediaProjectionManager;
+//    private MediaProjection mediaProjection;
+//    private VirtualDisplay virtualDisplay;
+//    private ImageReader imageReader;
+//    private HandlerThread handlerThread;
+//    private Handler handler;
+//    private long lastBroadcastTime = 0;
+//
+//    private final String TAG = "JavaLog";
+//
+//    private volatile boolean isSearching = true;
+//
+//    public static class MatchResult {
+//        public boolean found;
+//        public Point point;
+//        public double similarity;
+//    }
+//
+//    // --- 1. 定义应用的状态 ---
+//    private enum MatchState {
+//        BA_ICON,
+//        ENTER_GAME,
+//        DONE,                   // 状态三：全部完成
+//        IDLE                    // 空闲状态
+//    }
+//
+//    // --- 2. 新增的成员变量 ---
+//    private MatchState state = MatchState.IDLE; // 当前状态
+//    private Mat currentTemplateMat = new Mat(); // 当前需要匹配的模板Mat对象
+//    private Mat nextTemplateMat = new Mat();
+//    private Mat srcMat = new Mat();
+//
+//    @Override
+//    public void onCreate() {
+//        super.onCreate();
+//        mediaProjectionManager = (MediaProjectionManager) getSystemService(Context.MEDIA_PROJECTION_SERVICE);
+//        handlerThread = new HandlerThread(HANDLER_THREAD_NAME);
+//        handlerThread.start();
+//        handler = new Handler(handlerThread.getLooper());
+//        state = MatchState.BA_ICON;
+//        loadTemplate(currentTemplateMat, R.drawable.ba_icon);
+//        loadTemplate(nextTemplateMat, R.drawable.enter_game);
+//        //Core.rotate(nextTemplateMat, nextTemplateMat, Core.ROTATE_90_COUNTERCLOCKWISE);
+//        Log.d(TAG, "currentTemplateMat w:" + currentTemplateMat.width() + "h:"+currentTemplateMat.height());
+//    }
+//
+//    private void loadTemplate(Mat template, int id)
+//    {
+//        Bitmap bitmap = null;
+//        bitmap = BitmapFactory.decodeResource(getResources(), id);
+//        Utils.bitmapToMat(bitmap, template);
+//    }
+//
+//    @Override
+//    public int onStartCommand(Intent intent, int flags, int startId) {
+//        isSearching = true; // 正确重置状态
+//        createNotificationChannel();
+//        Notification notification = createNotification();
+//
+//        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+//            startForeground(NOTIFICATION_ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION);
+//        } else {
+//            startForeground(NOTIFICATION_ID, notification);
+//        }
+//
+//        if (intent != null) {
+//            int resultCode = intent.getIntExtra(EXTRA_RESULT_CODE, Activity.RESULT_CANCELED);
+//            Intent data = intent.getParcelableExtra(EXTRA_DATA);
+//            if (data != null) {
+//                startCapture(resultCode, data);
+//            }
+//        }
+//        return START_NOT_STICKY;
+//    }
+//
+//    private void startCapture(int resultCode, Intent data) {
+//        int screenWidth = getResources().getDisplayMetrics().widthPixels;
+//        int screenHeight = getResources().getDisplayMetrics().heightPixels;
+//        int screenDensity = getResources().getDisplayMetrics().densityDpi;
+//
+//        imageReader = ImageReader.newInstance(screenWidth, screenHeight, PixelFormat.RGBA_8888, 2);
+//        imageReader.setOnImageAvailableListener(reader -> {
+//            Image image = null;
+//            Bitmap srcBitmap = null;
+//            try {
+//                image = reader.acquireLatestImage();
+//                if (image != null) {
+//                    // 只转换一次，效率最高
+//                    srcBitmap = imageToBitmap(image);
+//                    Utils.bitmapToMat(srcBitmap, srcMat);
+//                    executeStateMachine();
+//
+//                    // 节流发送广播
+//                    long currentTime = System.currentTimeMillis();
+//                    if (currentTime - lastBroadcastTime > 1000) {
+//                        lastBroadcastTime = currentTime;
+//                        broadcastBitmapForPreview(srcBitmap);
+//                    }
+//                }
+//            } catch (Exception e) {
+//                e.printStackTrace();
+//            } finally {
+//                if (image != null) {
+//                    image.close();
+//                }
+//                // 安全回收 Bitmap
+//                if (srcBitmap != null && !srcBitmap.isRecycled()) {
+//                    srcBitmap.recycle();
+//                }
+//            }
+//        }, handler);
+//
+//        mediaProjection = mediaProjectionManager.getMediaProjection(resultCode, data);
+//        if (mediaProjection != null) {
+//            mediaProjection.registerCallback(new MediaProjection.Callback() {
+//                @Override
+//                public void onStop() { stopSelf(); }
+//            }, handler);
+//            virtualDisplay = mediaProjection.createVirtualDisplay("ScreenCapture", screenWidth, screenHeight, screenDensity,
+//                    DisplayManager.VIRTUAL_DISPLAY_FLAG_AUTO_MIRROR, imageReader.getSurface(), null, handler);
+//        }
+//    }
+//
+//    private Bitmap imageToBitmap(Image image) {
+//        Image.Plane[] planes = image.getPlanes();
+//        ByteBuffer buffer = planes[0].getBuffer();
+//        int pixelStride = planes[0].getPixelStride();
+//        int rowStride = planes[0].getRowStride();
+//        int rowPadding = rowStride - pixelStride * image.getWidth();
+//
+//        Bitmap tempBitmap = Bitmap.createBitmap(
+//                image.getWidth() + rowPadding / pixelStride,
+//                image.getHeight(),
+//                Bitmap.Config.ARGB_8888
+//        );
+//        tempBitmap.copyPixelsFromBuffer(buffer);
+//        Bitmap croppedBitmap = Bitmap.createBitmap(tempBitmap, 0, 0, image.getWidth(), image.getHeight());
+//        if (!tempBitmap.isRecycled()) {
+//            tempBitmap.recycle();
+//        }
+//        return croppedBitmap;
+//    }
+//
+//    private void broadcastBitmapForPreview(Bitmap bitmap) {
+//        // 发送副本，防止多线程冲突
+//        Bitmap bitmapCopy = bitmap.copy(bitmap.getConfig(), false);
+//        Intent intent = new Intent(ACTION_FRAME_CAPTURED);
+//        intent.putExtra(EXTRA_BITMAP, bitmapCopy);
+//        LocalBroadcastManager.getInstance(this).sendBroadcast(intent);
+//    }
+//
+//    private void findTargetAndClick(Bitmap bitmap) {
+//        int targetColor = Color.RED;
+//        int searchStep = 10;
+//
+//        for (int y = 0; y < bitmap.getHeight(); y += searchStep) {
+//            for (int x = 0; x < bitmap.getWidth(); x += searchStep) {
+//                if (bitmap.getPixel(x, y) == targetColor) {
+//                    Log.d("AutoClick", "找到目标颜色! 坐标: (" + x + ", " + y + ")");
+//                    AutoClickAccessibilityService.performClick(x, y);
+//                    isSearching = false;
+//                    return;
+//                }
+//            }
+//        }
+//    }
+//
+//    private void executeStateMachine()
+//    {
+//        MatchResult result = findTemplateWithJava(srcMat, currentTemplateMat);
+//        MatchResult nextResult = findTemplateWithJava(srcMat, nextTemplateMat);
+//        switch (state) {
+//            case BA_ICON:
+//                if (result.found) {
+//                    clickWithOffset(result.point);
+//                }
+//                if (nextResult.found) {
+//                    loadTemplate(currentTemplateMat, R.drawable.enter_game);
+//                    loadTemplate(nextTemplateMat, R.drawable.enter_game);
+//                    Core.rotate(currentTemplateMat, currentTemplateMat, Core.ROTATE_90_CLOCKWISE);
+//                    Core.rotate(nextTemplateMat, nextTemplateMat, Core.ROTATE_90_CLOCKWISE);
+//                    state = MatchState.ENTER_GAME;
+//                }
+//                break;
+//            case ENTER_GAME:
+//                if (result.found) {
+//                    Point point = new Point(srcMat.width() / 2, srcMat.height() / 2);
+//                    clickWithOffset(point);
+//                    if (nextResult.found) {
+//
+//                    }
+//                }
+//
+//                break;
+//        }
+//        Log.d(TAG, "状态 [" + state + "] 找到目标! ");
+//        Log.d(TAG, "srcMat w:"+srcMat.width()+" h:"+srcMat.height());
+//        Log.d(TAG, "currentTemplateMat w:"+currentTemplateMat.width()+" h:"+currentTemplateMat.height());
+//        Log.d(TAG, "nextTemplateMat w:"+nextTemplateMat.width()+" h:"+nextTemplateMat.height());
+//    }
+//
+//    private void clickWithOffset(Point point)
+//    {
+//        // 计算点击中心点坐标
+//        int clickX = (int) (point.x + currentTemplateMat.cols() / 2);
+//        int clickY = (int) (point.y + currentTemplateMat.rows() / 2);
+//        AutoClickAccessibilityService.performClick(clickX, clickY);
+//    }
+////    private void loadTemplate(SearchState newState) {
+////        Log.d("AutoClick", "切换状态到: " + newState);
+////
+////        // 安全地释放上一个模板的内存
+////        if (currentTemplateMat != null && !currentTemplateMat.empty()) {
+////            currentTemplateMat.release();
+////        }
+////
+////        Bitmap templateBitmap = null;
+////        switch (newState) {
+////            case SEARCHING_FOR_LOGIN:
+////                // 加载登录按钮的图片
+////                templateBitmap = BitmapFactory.decodeResource(getResources(), R.drawable.login_button);
+////                break;
+////            case SEARCHING_FOR_CONFIRM:
+////                // 加载确认按钮的图片
+////                templateBitmap = BitmapFactory.decodeResource(getResources(), R.drawable.confirm_button);
+////                break;
+////            case DONE:
+////            case IDLE:
+////                // 完成或空闲状态，不需要模板
+////                currentTemplateMat = null;
+////                break;
+////        }
+////
+////        if (templateBitmap != null) {
+////            currentTemplateMat = new Mat();
+////            Utils.bitmapToMat(templateBitmap, currentTemplateMat);
+////        }
+////
+////        currentState = newState; // 更新当前状态
+////    }
+//
+//    private MatchResult findTemplateWithJava(Mat srcMat, Mat templateMat) {
+//        MatchResult result = new MatchResult();
+//        Mat srcGray = new Mat();
+//        Mat templateGray = new Mat();
+//        Mat resultMat = new Mat();
+//
+//        try {
+//            // 安全检查
+//            if (templateMat == null || templateMat.empty()) {
+//                result.found = false;
+//                return result;
+//            }
+//
+//            // 1. 将屏幕截图 Bitmap 转换为 Mat
+//
+//            // 2. 转换为灰度图
+//            Imgproc.cvtColor(srcMat, srcGray, Imgproc.COLOR_RGBA2GRAY);
+//            Imgproc.cvtColor(templateMat, templateGray, Imgproc.COLOR_RGBA2GRAY);
+//
+//            // 3. 模板匹配
+//            Imgproc.matchTemplate(srcGray, templateGray, resultMat, Imgproc.TM_CCOEFF_NORMED);
+//
+//            // 4. 找到最佳匹配点
+//            Core.MinMaxLocResult mmr = Core.minMaxLoc(resultMat);
+//            double maxVal = mmr.maxVal;
+//            Point maxLoc = mmr.maxLoc;
+//
+//            // 5. 检查相似度是否超过阈值 (例如 80%)
+//            float threshold = 0.8f;
+//            Log.d(TAG, "maxVal:"+maxVal);
+//            if (maxVal >= threshold) {
+//                result.found = true;
+//                result.point = maxLoc;
+//                result.similarity = maxVal;
+//            } else {
+//                result.found = false;
+//            }
+//        } catch (Exception e) {
+//            e.printStackTrace();
+//            result.found = false;
+//        } finally {
+//            // 关键：释放所有创建的 Mat 对象，防止内存泄漏
+//            //srcMat.release();
+//            srcGray.release();
+//            templateGray.release();
+//            resultMat.release();
+//        }
+//        return result;
+//    }
+//
+//    @Override
+//    public void onDestroy() {
+//        super.onDestroy();
+//        stopCapture();
+//        if (handlerThread != null) {
+//            handlerThread.quitSafely();
+//        }
+//    }
+//
+//    private void stopCapture() {
+//        if (virtualDisplay != null) virtualDisplay.release();
+//        if (imageReader != null) imageReader.close();
+//        if (mediaProjection != null) mediaProjection.stop();
+//    }
+//
+//    private void createNotificationChannel() {
+//        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+//            NotificationChannel serviceChannel = new NotificationChannel(
+//                    NOTIFICATION_CHANNEL_ID,
+//                    "Screen Capture Service Channel",
+//                    NotificationManager.IMPORTANCE_LOW
+//            );
+//            NotificationManager manager = getSystemService(NotificationManager.class);
+//            if (manager != null) {
+//                manager.createNotificationChannel(serviceChannel);
+//            }
+//        }
+//    }
+//
+//    private Notification createNotification() {
+//        return new NotificationCompat.Builder(this, NOTIFICATION_CHANNEL_ID)
+//                .setContentTitle("屏幕采集中")
+//                .setContentText("应用正在获取您的屏幕内容。")
+//                .setSmallIcon(R.mipmap.ic_launcher) // 确保你的项目中有这个图标
+//                .build();
+//    }
+//
+//    @Nullable
+//    @Override
+//    public IBinder onBind(Intent intent) {
+//        return null;
+//    }
+//
+//    public native String stringFromJNI();
+//}
+
+ //ScreenCaptureService.java (已添加旋转处理的完整代码)
