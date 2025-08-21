@@ -70,9 +70,14 @@ public class ScreenCaptureService extends Service {
     private volatile boolean isSearching = true;
 
     // 状态机相关
-    private enum MatchState { BA_ICON, ENTER_GAME, NOTICE, MAIN_MENU , COFFEE_HOUSE,
-        COFFEE_HOUSE_IN, COFFEE_HOUSE_GET, COFFEE_HOUSE_QUIT, SCHEDULE_TASK,SOCIAL_TASK,
-        SHOP_TASK, BOUNTY_TASK, SPECIAL_TASK, COMMUTE_TASK, COMPETITION_TASK, DAILY_TASK, DONE, IDLE }
+    private enum MatchState { BA_ICON, ENTER_GAME, NOTICE, MAIN_MENU , COFFEE_HOUSE_TASK,
+        SCHEDULE_TASK, SOCIAL_TASK, SHOP_TASK, BOUNTY_TASK, SPECIAL_TASK, COMMUTE_TASK,
+        COMPETITION_TASK, DAILY_TASK, DONE, IDLE }
+
+    private enum CoffeeState{
+        COFFEE_HOUSE ,COFFEE_HOUSE_IN, COFFEE_HOUSE_GET, QUIT_TO_MAIN
+    }
+
     private enum DailyState{
         DM_IN, DM_GET, DM_QUIT_TO_MAIN
     }
@@ -110,8 +115,11 @@ public class ScreenCaptureService extends Service {
     BountyState BT_State = BountyState.BOUNTY_IN;
     DailyState DM_State = DailyState.DM_IN;
     CompetitionState CPT_State = CompetitionState.CPT_IN;
-    private MatchState state = MatchState.BA_ICON;
-    private int clickCount = 0;
+    CoffeeState CH_State = CoffeeState.COFFEE_HOUSE;
+    private MatchState state = MatchState.MAIN_MENU;
+    List<MatchState> taskSequence = new ArrayList<>();
+    private int taskIndex;
+    private int chClickCount = 0;
     List<Point> points = new ArrayList<>();
     private int dmClickCount = 0;
     List<Point> CPT_Points = new ArrayList<>();
@@ -146,6 +154,16 @@ public class ScreenCaptureService extends Service {
         handler = new Handler(handlerThread.getLooper());
 
         loadStateTemplate();
+        taskSequence.add(MatchState.COFFEE_HOUSE_TASK);
+        taskSequence.add(MatchState.SCHEDULE_TASK);
+        taskSequence.add(MatchState.SOCIAL_TASK);
+        taskSequence.add(MatchState.SHOP_TASK);
+        taskSequence.add(MatchState.BOUNTY_TASK);
+        taskSequence.add(MatchState.SPECIAL_TASK);
+        taskSequence.add(MatchState.COMMUTE_TASK);
+        taskSequence.add(MatchState.COMPETITION_TASK);
+        taskSequence.add(MatchState.DAILY_TASK);
+        taskIndex = 0;
         //Core.rotate(nextTemplateMat, nextTemplateMat, Core.ROTATE_180);
         Log.d(TAG, "nextTemplateMat w:" + nextTemplateMat.width() + "h:"+nextTemplateMat.height());
 
@@ -278,21 +296,9 @@ public class ScreenCaptureService extends Service {
                 loadTemplate(currentTemplateMat, R.drawable.main_menu);
                 loadTemplate(nextTemplateMat, R.drawable.coffee_house);
                 break;
-            case COFFEE_HOUSE:
+            case COFFEE_HOUSE_TASK:
                 loadTemplate(currentTemplateMat, R.drawable.coffee_house);
                 loadTemplate(nextTemplateMat, R.drawable.coffee_house_in);
-                break;
-            case COFFEE_HOUSE_IN:
-                loadTemplate(currentTemplateMat, R.drawable.coffee_house_in);
-                loadTemplate(nextTemplateMat, R.drawable.coffee_house_get);
-                break;
-            case COFFEE_HOUSE_GET:
-                loadTemplate(currentTemplateMat, R.drawable.coffee_house_get);
-                loadTemplate(nextTemplateMat, R.drawable.quit_to_main);
-                break;
-            case COFFEE_HOUSE_QUIT:
-                loadTemplate(currentTemplateMat, R.drawable.quit_to_main);
-                loadTemplate(nextTemplateMat, R.drawable.schedule_task);
                 break;
             case SCHEDULE_TASK:
                 loadTemplate(currentTemplateMat, R.drawable.schedule_task);
@@ -449,118 +455,71 @@ public class ScreenCaptureService extends Service {
                 break;
             case MAIN_MENU:
                 if (result.found) {
-
-                }
-                if (nextResult.found) {
-                    state = MatchState.COFFEE_HOUSE;
-                    loadStateTemplate();
-                }
-                break;
-            case COFFEE_HOUSE:
-                if (result.found) {
-                    clickWithOffset(result.point);
-                }
-                if (nextResult.found) {
-                    state = MatchState.COFFEE_HOUSE_IN;
-                    loadStateTemplate();
-                    points = createClickPointGrid(srcMat);
-                }
-                break;
-            case COFFEE_HOUSE_IN:
-                if(clickCount < points.size()) {
-                    click(points.get(clickCount));
-                    clickCount++;
-                }
-                int time = 150;
-
-                for(int i=0; i<9; i++){
-                    if(clickCount < points.size()) {
-                        threadSleep(time);
-                        click(points.get(clickCount));
-                        clickCount++;
-                    }
-                }
-                skipLikingDegreeUp(srcMat);
-                if (result.found && isClickReady()) {
-                    if(clickCount >= points.size()){
-                        result.point.x = srcMat.width() - 1.5 * result.point.x;
-                        clickWithOffset(result.point);
-                        lastTime = System.currentTimeMillis();
+                    if(taskIndex < taskSequence.size()){
+                        state = taskSequence.get(taskIndex);
+                        loadStateTemplate();
+                        taskIndex ++;
+                    } else {
+                        state = MatchState.DONE;
+                        loadStateTemplate();
                     }
                 }
                 if (nextResult.found) {
-                    state = MatchState.COFFEE_HOUSE_GET;
-                    clickCount = 0;
-                    points.clear();
-                    loadStateTemplate();
+
                 }
                 break;
-            case COFFEE_HOUSE_GET:
-                if (result.found && isClickReady()) {
-                    clickWithOffset(result.point);
-                    lastTime = System.currentTimeMillis();
-                    clickCount ++;
-                }
-                if (nextResult.found && clickCount !=0) {
-                    state = MatchState.COFFEE_HOUSE_QUIT;
-                    clickCount = 0;
-                    loadStateTemplate();
-                }
-                break;
-            case COFFEE_HOUSE_QUIT:
-                if (result.found) {
-                    clickWithOffset(result.point);
-                }
-                if (nextResult.found) {
-                    state = MatchState.SCHEDULE_TASK;
+            case COFFEE_HOUSE_TASK:
+                if (coffeeTask(result, nextResult)) {
+                    state = MatchState.MAIN_MENU;
                     loadStateTemplate();
                 }
                 break;
             case SCHEDULE_TASK:
                 if(scheduleTask(result, nextResult)){
-                    state = MatchState.SOCIAL_TASK;
+                    state = MatchState.MAIN_MENU;
                     loadStateTemplate();
                 }
                 break;
             case SOCIAL_TASK:
                 if(socialTask(result, nextResult)){
-                    state = MatchState.SHOP_TASK;
+                    state = MatchState.MAIN_MENU;
                     loadStateTemplate();
                 }
                 break;
             case SHOP_TASK:
                 if(shopTask(result, nextResult)){
-                    state = MatchState.BOUNTY_TASK;
+                    state = MatchState.MAIN_MENU;
                     loadStateTemplate();
                 }
                 break;
             case BOUNTY_TASK:
                 if(bountyTask(result, nextResult)){
-                    state = MatchState.SPECIAL_TASK;
+                    state = MatchState.MAIN_MENU;
                     loadStateTemplate();
                 }
                 break;
             case SPECIAL_TASK:
                 if(specialTask(result, nextResult)){
-                    state = MatchState.COMMUTE_TASK;
+                    state = MatchState.MAIN_MENU;
                     loadStateTemplate();
                 }
                 break;
             case COMMUTE_TASK:
                 if(commuteTask(result, nextResult)){
-                    state = MatchState.COMPETITION_TASK;
+                    state = MatchState.MAIN_MENU;
                     loadStateTemplate();
                 }
                 break;
             case COMPETITION_TASK:
                 if(competitionTask(result, nextResult)){
-                    state = MatchState.DAILY_TASK;
+                    state = MatchState.MAIN_MENU;
                     loadStateTemplate();
                 }
                 break;
             case DAILY_TASK:
                 if(dailyTask(result, nextResult)){
-                    state = MatchState.DONE;
+                    state = MatchState.MAIN_MENU;
+                    loadStateTemplate();
                 }
                 break;
             case DONE:
@@ -570,8 +529,9 @@ public class ScreenCaptureService extends Service {
 
         }
         String allStatesLog = String.format(
-                "主状态: %s | 日常: %s | 竞技: %s | 通缉: %s | | 特别: %s | | 交流: %s | 商店: %s | 社交: %s | 日程: %s | 咖啡: %s",
+                "主状态: %s | 咖啡: %s|日常: %s | 竞技: %s | 通缉: %s | | 特别: %s | | 交流: %s | 商店: %s | 社交: %s | 日程: %s ",
                 state,
+                CH_State,
                 DM_State,
                 CPT_State,
                 BT_State,
@@ -579,14 +539,82 @@ public class ScreenCaptureService extends Service {
                 CM_State,
                 SHOP_State,
                 SC_State,
-                SH_State,
-                // COFFEE_HOUSE 相关的状态是主状态机的一部分，这里用主状态 state 变量即可
-                (state.toString().contains("COFFEE") ? state : "N/A")
+                SH_State
         );
         Log.d(TAG, "--- 当前所有状态 --- " + allStatesLog);
         Log.d(TAG, "相似度: " + result.similarity+"  "+nextResult.similarity);
         Log.d(TAG, "srcMat 尺寸: "+srcMat.width()+"x"+srcMat.height());
         Log.d(TAG, "currentTemplateMat 尺寸: "+currentTemplateMat.width()+"x"+currentTemplateMat.height());
+    }
+
+    private boolean coffeeTask(MatchResult result, MatchResult nextResult){
+        boolean returnValue = false;
+        switch (CH_State){
+            case COFFEE_HOUSE:
+                if (result.found) {
+                    clickWithOffset(result.point);
+                }
+                if (nextResult.found) {
+                    CH_State = CoffeeState.COFFEE_HOUSE_IN;
+                    loadTemplate(currentTemplateMat, R.drawable.coffee_house_in);
+                    loadTemplate(nextTemplateMat, R.drawable.coffee_house_get);
+                    points = createClickPointGrid(srcMat);
+                }
+                break;
+            case COFFEE_HOUSE_IN:
+                if(chClickCount < points.size()) {
+                    click(points.get(chClickCount));
+                    chClickCount++;
+                }
+                int time = 150;
+                for(int i=0; i<9; i++){
+                    if(chClickCount < points.size()) {
+                        threadSleep(time);
+                        click(points.get(chClickCount));
+                        chClickCount++;
+                    }
+                }
+                skipLikingDegreeUp(srcMat);
+                if (result.found && isClickReady()) {
+                    if(chClickCount >= points.size()){
+                        result.point.x = srcMat.width() - 1.5 * result.point.x;
+                        clickWithOffset(result.point);
+                        lastTime = System.currentTimeMillis();
+                    }
+                }
+                if (nextResult.found) {
+                    CH_State = CoffeeState.COFFEE_HOUSE_GET;
+                    chClickCount = 0;
+                    points.clear();
+                    loadTemplate(currentTemplateMat, R.drawable.coffee_house_get);
+                    loadTemplate(nextTemplateMat, R.drawable.quit_to_main);
+                }
+                break;
+            case COFFEE_HOUSE_GET:
+                if (result.found && isClickReady()) {
+                    clickWithOffset(result.point);
+                    lastTime = System.currentTimeMillis();
+                    chClickCount ++;
+                }
+                if (nextResult.found && chClickCount !=0) {
+                    CH_State = CoffeeState.QUIT_TO_MAIN;
+                    chClickCount = 0;
+                    loadTemplate(currentTemplateMat, R.drawable.quit_to_main);
+                    loadTemplate(nextTemplateMat, R.drawable.main_menu);
+                }
+                break;
+            case QUIT_TO_MAIN:
+                if (result.found) {
+                    clickWithOffset(result.point);
+                }
+                if(nextResult.found){
+                    CH_State = CoffeeState.COFFEE_HOUSE;
+                    chClickCount = 0;
+                    returnValue = true;
+                }
+                break;
+        }
+        return returnValue;
     }
 
     private boolean dailyTask(MatchResult result, MatchResult nextResult){
@@ -1389,7 +1417,7 @@ public class ScreenCaptureService extends Service {
                 }
                 if(nextResult.found){
                     SH_State = ScheduleState.SH_IN;
-                    clickCount = 0;
+                    shClickCount = 0;
                     SH_Points.clear();
                     returnValue = true;
                 }
