@@ -72,7 +72,7 @@ public class ScreenCaptureService extends Service {
     // 状态机相关
     private enum MatchState { BA_ICON, ENTER_GAME, NOTICE, MAIN_MENU , COFFEE_HOUSE_TASK,
         SCHEDULE_TASK, SOCIAL_TASK, SHOP_TASK, BOUNTY_TASK, SPECIAL_TASK, COMMUTE_TASK,
-        COMPETITION_TASK, DAILY_TASK, DONE, IDLE }
+        COMPETITION_TASK, DIFFICULT_TASK, DAILY_TASK, DONE, IDLE }
 
     private enum CoffeeState{
         COFFEE_HOUSE ,COFFEE_HOUSE_IN, COFFEE_HOUSE_GET, QUIT_TO_MAIN
@@ -106,7 +106,13 @@ public class ScreenCaptureService extends Service {
     private enum ScheduleState{
         SH_IN, SH_LOC_SELECT,SH_ALL,SH_CHOOSE,SH_START,SH_CONFIRM, SH_QUIT_TO_MAIN
     }
-
+    private enum DifficultState{
+        DF_IN, WORK_SPACE, DF_MISSION_ICON, DF_ICON, DF_LEFT, DF_LEVEL, MAX_VALUE, START_QUICK_FIGHT,
+        QUICK_FIGHT_CONFIRM ,QUICK_FIGHT_FINISH, QUIT_TO_MAIN
+    }
+    
+    
+    DifficultState DF_State = DifficultState.DF_IN;
     ShopState SHOP_State = ShopState.SHOP_IN;
     SocialState SC_State = SocialState.SC_IN;
     ScheduleState SH_State = ScheduleState.SH_IN;
@@ -116,7 +122,7 @@ public class ScreenCaptureService extends Service {
     DailyState DM_State = DailyState.DM_IN;
     CompetitionState CPT_State = CompetitionState.CPT_IN;
     CoffeeState CH_State = CoffeeState.COFFEE_HOUSE;
-    private MatchState state = MatchState.MAIN_MENU;
+    private MatchState state = MatchState.BA_ICON;
     List<MatchState> taskSequence = new ArrayList<>();
     private int taskIndex;
     private int chClickCount = 0;
@@ -131,6 +137,7 @@ public class ScreenCaptureService extends Service {
     private int shClickCount = 0;
     private int btClickCount;
     private int cmClickCount;
+    private int dfClickCount = 0;
     private boolean isSecondBuy = false;
 
     private Mat currentTemplateMat = new Mat();
@@ -162,9 +169,9 @@ public class ScreenCaptureService extends Service {
         taskSequence.add(MatchState.SPECIAL_TASK);
         taskSequence.add(MatchState.COMMUTE_TASK);
         taskSequence.add(MatchState.COMPETITION_TASK);
+        taskSequence.add(MatchState.DIFFICULT_TASK);
         taskSequence.add(MatchState.DAILY_TASK);
         taskIndex = 0;
-        //Core.rotate(nextTemplateMat, nextTemplateMat, Core.ROTATE_180);
         Log.d(TAG, "nextTemplateMat w:" + nextTemplateMat.width() + "h:"+nextTemplateMat.height());
 
         // 【新增】记录初始屏幕方向
@@ -328,6 +335,10 @@ public class ScreenCaptureService extends Service {
                 loadTemplate(currentTemplateMat, R.drawable.work_space);
                 loadTemplate(nextTemplateMat, R.drawable.cpt_icon);
                 break;
+            case DIFFICULT_TASK:
+                loadTemplate(currentTemplateMat, R.drawable.work_space);
+                loadTemplate(nextTemplateMat, R.drawable.df_mission_icon);
+                break;
             case DAILY_TASK:
                 loadTemplate(currentTemplateMat, R.drawable.dm_icon);
                 loadTemplate(nextTemplateMat, R.drawable.dm_get);
@@ -465,7 +476,6 @@ public class ScreenCaptureService extends Service {
                     }
                 }
                 if (nextResult.found) {
-
                 }
                 break;
             case COFFEE_HOUSE_TASK:
@@ -516,6 +526,12 @@ public class ScreenCaptureService extends Service {
                     loadStateTemplate();
                 }
                 break;
+            case DIFFICULT_TASK:
+                if(difficultTask(result, nextResult)){
+                    state = MatchState.MAIN_MENU;
+                    loadStateTemplate();
+                }
+                break;
             case DAILY_TASK:
                 if(dailyTask(result, nextResult)){
                     state = MatchState.MAIN_MENU;
@@ -529,10 +545,11 @@ public class ScreenCaptureService extends Service {
 
         }
         String allStatesLog = String.format(
-                "主状态: %s | 咖啡: %s|日常: %s | 竞技: %s | 通缉: %s | | 特别: %s | | 交流: %s | 商店: %s | 社交: %s | 日程: %s ",
+                "主状态: %s | 咖啡: %s| 日常: %s | 苦难: %s |竞技: %s | 通缉: %s | | 特别: %s | | 交流: %s | 商店: %s | 社交: %s | 日程: %s | ",
                 state,
                 CH_State,
                 DM_State,
+                DF_State,
                 CPT_State,
                 BT_State,
                 SP_State,
@@ -547,6 +564,130 @@ public class ScreenCaptureService extends Service {
         Log.d(TAG, "currentTemplateMat 尺寸: "+currentTemplateMat.width()+"x"+currentTemplateMat.height());
     }
 
+    private boolean difficultTask(MatchResult result, MatchResult nextResult){
+        boolean returnValue = false;
+        switch (DF_State) {
+            case DF_IN:
+                if(result.found){
+                    clickWithOffset(result.point);
+                }
+                if(nextResult.found){
+                    DF_State = DifficultState.WORK_SPACE;
+                    loadTemplate(currentTemplateMat, R.drawable.work_space);
+                    loadTemplate(nextTemplateMat, R.drawable.bounty_icon);
+                }
+                break;
+            case WORK_SPACE:
+                if(result.found){
+                    clickWithOffset(result.point);
+                }
+                if(nextResult.found){
+                    DF_State = DifficultState.DF_MISSION_ICON;
+                    loadTemplate(currentTemplateMat, R.drawable.df_mission_icon);
+                    loadTemplate(nextTemplateMat, R.drawable.df_icon);
+                }
+                break;
+            case DF_MISSION_ICON:
+                if(result.found && isClickReady()){
+                    clickWithOffset(result.point);
+                    lastTime = System.currentTimeMillis();
+                }
+                if(nextResult.found){
+                    DF_State = DifficultState.DF_ICON;
+                    loadTemplate(currentTemplateMat, R.drawable.df_icon);
+                    loadTemplate(nextTemplateMat, R.drawable.df_left);
+                }
+                break;
+            case DF_ICON:
+                if(result.found){
+                    clickWithOffset(result.point);
+                }
+                if(nextResult.found){
+                    DF_State = DifficultState.DF_LEFT;
+                    loadTemplate(currentTemplateMat, R.drawable.df_left);
+                    loadTemplate(nextTemplateMat, R.drawable.df_level);
+                }
+                break;
+            case DF_LEFT:
+                if(result.found && isClickReady()){
+                    clickWithOffset(result.point);
+                    lastTime = System.currentTimeMillis();
+                }
+                if(nextResult.similarity > 0.92){
+                    DF_State = DifficultState.DF_LEVEL;
+                    loadTemplate(currentTemplateMat, R.drawable.df_level);
+                    loadTemplate(nextTemplateMat, R.drawable.max_value);
+                }
+                break;
+            case DF_LEVEL:
+                if(result.similarity > 0.92 && isClickReady()){
+                    clickWithOffset(new Point(result.point.x + currentTemplateMat.width()*5,
+                            result.point.y));
+                    lastTime = System.currentTimeMillis();
+                }
+                if(nextResult.found){
+                    DF_State = DifficultState.MAX_VALUE;
+                    loadTemplate(currentTemplateMat, R.drawable.max_value);
+                    loadTemplate(nextTemplateMat, R.drawable.start_quick_fight);
+                }
+                break;
+            case MAX_VALUE:
+                if(result.found){
+                    clickWithOffset(result.point);
+                }
+                dfClickCount ++;
+                if(nextResult.found && dfClickCount > 1){
+                    DF_State = DifficultState.START_QUICK_FIGHT;
+                    dfClickCount = 0;
+                    loadTemplate(currentTemplateMat, R.drawable.start_quick_fight);
+                    loadTemplate(nextTemplateMat, R.drawable.quick_fight_confirm);
+                }
+                break;
+            case START_QUICK_FIGHT:
+                if(result.found){
+                    result.point.x = result.point.x - currentTemplateMat.width()*0.25;
+                    clickWithOffset(result.point);
+                }
+                if(nextResult.found){
+                    DF_State = DifficultState.QUICK_FIGHT_CONFIRM;
+                    loadTemplate(currentTemplateMat, R.drawable.quick_fight_confirm);
+                    loadTemplate(nextTemplateMat, R.drawable.quick_fight_finish);
+                }
+                break;
+            case QUICK_FIGHT_CONFIRM:
+                if(result.found){
+                    clickWithOffset(result.point);
+                }
+                if(nextResult.found){
+                    DF_State = DifficultState.QUICK_FIGHT_FINISH;
+                    loadTemplate(currentTemplateMat, R.drawable.quick_fight_finish);
+                    loadTemplate(nextTemplateMat, R.drawable.quit_to_main);
+                }
+                break;
+            case QUICK_FIGHT_FINISH:
+                if(result.found){
+                    click(new Point(0.95*srcMat.width(), 0.01*srcMat.height()));
+                }
+                if(nextResult.found){
+                    DF_State = DifficultState.QUIT_TO_MAIN;
+                    loadTemplate(currentTemplateMat, R.drawable.quit_to_main);
+                    loadTemplate(nextTemplateMat, R.drawable.main_menu);
+                }
+                break;
+            case QUIT_TO_MAIN:
+                if(result.found){
+                    clickWithOffset(result.point);
+                }
+                if(nextResult.found){
+                    DF_State = DifficultState.QUIT_TO_MAIN;
+                    dfClickCount = 0;
+                    returnValue = true;
+                }
+                break;
+        }
+        return returnValue;
+    }
+    
     private boolean coffeeTask(MatchResult result, MatchResult nextResult){
         boolean returnValue = false;
         switch (CH_State){
@@ -635,7 +776,7 @@ public class ScreenCaptureService extends Service {
                     clickWithOffset(result.point);
                     dmClickCount ++;
                     threadSleep(150);
-                    result.point.x = result.point.x - currentTemplateMat.width();
+                    result.point.x = result.point.x - 1.3*currentTemplateMat.width();
                     clickWithOffset(result.point);
                 }
                 if(nextResult.found && dmClickCount > 4){
