@@ -49,12 +49,13 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     private boolean temp_doDifficultTask;
     private boolean temp_doDailyTask;
     private boolean temp_doMailTask;
+    private boolean temp_doClearPhysic;
 
     private Button btnStartCapture;
     private Button btnStopCapture;
     private Button btnEnableAccessibility;
     private CheckBox cbCoffee, cbSchedule, cbSpecial, cbCompetition, cbCommute,
-            cbDifficult, cbDaily, cbShop, cbBounty, cbSocial, cbMail;
+            cbDifficult, cbDaily, cbShop, cbBounty, cbSocial, cbMail, cbClearPhysic;
     private ImageView capturedImageView; // 新增：显示画面的 ImageView
     private BroadcastReceiver frameReceiver; // 新增：接收广播的接收器
     private MediaProjectionManager mediaProjectionManager;
@@ -81,6 +82,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         cbBounty = findViewById(R.id.cb_bounty_task);
         cbSocial = findViewById(R.id.cb_social_task);
         cbMail = findViewById(R.id.cb_mail_task);
+        cbClearPhysic = findViewById(R.id.cb_clear_physic);
 
         btnEnableAccessibility = findViewById(R.id.btn_enable_accessibility);
         btnEnableAccessibility.setOnClickListener(this);
@@ -232,6 +234,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         temp_doDifficultTask = cbDifficult.isChecked();
         temp_doDailyTask = cbDaily.isChecked();
         temp_doMailTask = cbMail.isChecked();
+        temp_doClearPhysic = cbClearPhysic.isChecked();
 
         Log.d("MainActivity_DEBUG", "临时保存 CheckBox 状态 - 咖啡厅: " + temp_doCoffeeTask);
     }
@@ -248,6 +251,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         intent.putExtra("DO_DIFFICULT_TASK", temp_doDifficultTask);
         intent.putExtra("DO_DAILY_TASK", temp_doDailyTask);
         intent.putExtra("DO_MAIL_TASK", temp_doMailTask);
+        intent.putExtra("DO_CLEAR_PHYSIC", temp_doClearPhysic);
     }
 
     @Override

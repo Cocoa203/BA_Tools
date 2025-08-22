@@ -11,11 +11,11 @@
       "fieldsDescending": {}
     },
     "memoizedSize": -1,
-    "memoizedHashCode": -1865788100
+    "memoizedHashCode": -754794824
   },
   {
     "level_": 0,
-    "message_": "rebuilding JSON D:\\project\\AndroidStudio\\AutoClick\\opencv\\.cxx\\Debug\\44q3q621\\x86_64\\android_gradle_build.json due to:",
+    "message_": "JSON \u0027D:\\project\\AndroidStudio\\AutoClick\\opencv\\.cxx\\Debug\\44q3q621\\x86_64\\android_gradle_build.json\u0027 was up-to-date",
     "file_": "D:\\project\\AndroidStudio\\AutoClick\\opencv\\libcxx_helper\\CMakeLists.txt",
     "tag_": "debug|x86_64",
     "diagnosticCode_": 0,
@@ -25,147 +25,7 @@
       "fieldsDescending": {}
     },
     "memoizedSize": -1,
-    "memoizedHashCode": -1368294587
-  },
-  {
-    "level_": 0,
-    "message_": "- expected json D:\\project\\AndroidStudio\\AutoClick\\opencv\\.cxx\\Debug\\44q3q621\\x86_64\\android_gradle_build.json file is not present, will remove stale json folder",
-    "file_": "D:\\project\\AndroidStudio\\AutoClick\\opencv\\libcxx_helper\\CMakeLists.txt",
-    "tag_": "debug|x86_64",
-    "diagnosticCode_": 0,
-    "memoizedIsInitialized": 1,
-    "unknownFields": {
-      "fields": {},
-      "fieldsDescending": {}
-    },
-    "memoizedSize": -1,
-    "memoizedHashCode": -736313505
-  },
-  {
-    "level_": 0,
-    "message_": "- missing previous command file D:\\project\\AndroidStudio\\AutoClick\\opencv\\.cxx\\Debug\\44q3q621\\x86_64\\metadata_generation_command.txt, will remove stale json folder",
-    "file_": "D:\\project\\AndroidStudio\\AutoClick\\opencv\\libcxx_helper\\CMakeLists.txt",
-    "tag_": "debug|x86_64",
-    "diagnosticCode_": 0,
-    "memoizedIsInitialized": 1,
-    "unknownFields": {
-      "fields": {},
-      "fieldsDescending": {}
-    },
-    "memoizedSize": -1,
-    "memoizedHashCode": 548927325
-  },
-  {
-    "level_": 0,
-    "message_": "- command changed from previous, will remove stale json folder",
-    "file_": "D:\\project\\AndroidStudio\\AutoClick\\opencv\\libcxx_helper\\CMakeLists.txt",
-    "tag_": "debug|x86_64",
-    "diagnosticCode_": 0,
-    "memoizedIsInitialized": 1,
-    "unknownFields": {
-      "fields": {},
-      "fieldsDescending": {}
-    },
-    "memoizedSize": -1,
-    "memoizedHashCode": 466511998
-  },
-  {
-    "level_": 0,
-    "message_": "removing stale contents from \u0027D:\\project\\AndroidStudio\\AutoClick\\opencv\\.cxx\\Debug\\44q3q621\\x86_64\u0027",
-    "file_": "D:\\project\\AndroidStudio\\AutoClick\\opencv\\libcxx_helper\\CMakeLists.txt",
-    "tag_": "debug|x86_64",
-    "diagnosticCode_": 0,
-    "memoizedIsInitialized": 1,
-    "unknownFields": {
-      "fields": {},
-      "fieldsDescending": {}
-    },
-    "memoizedSize": -1,
-    "memoizedHashCode": 1071367323
-  },
-  {
-    "level_": 0,
-    "message_": "created folder \u0027D:\\project\\AndroidStudio\\AutoClick\\opencv\\.cxx\\Debug\\44q3q621\\x86_64\u0027",
-    "file_": "D:\\project\\AndroidStudio\\AutoClick\\opencv\\libcxx_helper\\CMakeLists.txt",
-    "tag_": "debug|x86_64",
-    "diagnosticCode_": 0,
-    "memoizedIsInitialized": 1,
-    "unknownFields": {
-      "fields": {},
-      "fieldsDescending": {}
-    },
-    "memoizedSize": -1,
-    "memoizedHashCode": 34215183
-  },
-  {
-    "level_": 0,
-    "message_": "executing cmake Executable : D:\\program\\Sdk\\cmake\\3.18.1\\bin\\cmake.exe\narguments : \n-HD:\\project\\AndroidStudio\\AutoClick\\opencv\\libcxx_helper\n-DCMAKE_SYSTEM_NAME\u003dAndroid\n-DCMAKE_EXPORT_COMPILE_COMMANDS\u003dON\n-DCMAKE_SYSTEM_VERSION\u003d26\n-DANDROID_PLATFORM\u003dandroid-26\n-DANDROID_ABI\u003dx86_64\n-DCMAKE_ANDROID_ARCH_ABI\u003dx86_64\n-DANDROID_NDK\u003dD:\\program\\Sdk\\ndk\\21.4.7075529\n-DCMAKE_ANDROID_NDK\u003dD:\\program\\Sdk\\ndk\\21.4.7075529\n-DCMAKE_TOOLCHAIN_FILE\u003dD:\\program\\Sdk\\ndk\\21.4.7075529\\build\\cmake\\android.toolchain.cmake\n-DCMAKE_MAKE_PROGRAM\u003dD:\\program\\Sdk\\cmake\\3.18.1\\bin\\ninja.exe\n-DCMAKE_LIBRARY_OUTPUT_DIRECTORY\u003dD:\\project\\AndroidStudio\\AutoClick\\opencv\\build\\intermediates\\cxx\\Debug\\44q3q621\\obj\\x86_64\n-DCMAKE_RUNTIME_OUTPUT_DIRECTORY\u003dD:\\project\\AndroidStudio\\AutoClick\\opencv\\build\\intermediates\\cxx\\Debug\\44q3q621\\obj\\x86_64\n-DCMAKE_BUILD_TYPE\u003dDebug\n-BD:\\project\\AndroidStudio\\AutoClick\\opencv\\.cxx\\Debug\\44q3q621\\x86_64\n-GNinja\n-DANDROID_STL\u003dc++_shared\njvmArgs : \n\n",
-    "file_": "D:\\project\\AndroidStudio\\AutoClick\\opencv\\libcxx_helper\\CMakeLists.txt",
-    "tag_": "debug|x86_64",
-    "diagnosticCode_": 0,
-    "memoizedIsInitialized": 1,
-    "unknownFields": {
-      "fields": {},
-      "fieldsDescending": {}
-    },
-    "memoizedSize": -1,
-    "memoizedHashCode": 1490281857
-  },
-  {
-    "level_": 0,
-    "message_": "Executable : D:\\program\\Sdk\\cmake\\3.18.1\\bin\\cmake.exe\narguments : \n-HD:\\project\\AndroidStudio\\AutoClick\\opencv\\libcxx_helper\n-DCMAKE_SYSTEM_NAME\u003dAndroid\n-DCMAKE_EXPORT_COMPILE_COMMANDS\u003dON\n-DCMAKE_SYSTEM_VERSION\u003d26\n-DANDROID_PLATFORM\u003dandroid-26\n-DANDROID_ABI\u003dx86_64\n-DCMAKE_ANDROID_ARCH_ABI\u003dx86_64\n-DANDROID_NDK\u003dD:\\program\\Sdk\\ndk\\21.4.7075529\n-DCMAKE_ANDROID_NDK\u003dD:\\program\\Sdk\\ndk\\21.4.7075529\n-DCMAKE_TOOLCHAIN_FILE\u003dD:\\program\\Sdk\\ndk\\21.4.7075529\\build\\cmake\\android.toolchain.cmake\n-DCMAKE_MAKE_PROGRAM\u003dD:\\program\\Sdk\\cmake\\3.18.1\\bin\\ninja.exe\n-DCMAKE_LIBRARY_OUTPUT_DIRECTORY\u003dD:\\project\\AndroidStudio\\AutoClick\\opencv\\build\\intermediates\\cxx\\Debug\\44q3q621\\obj\\x86_64\n-DCMAKE_RUNTIME_OUTPUT_DIRECTORY\u003dD:\\project\\AndroidStudio\\AutoClick\\opencv\\build\\intermediates\\cxx\\Debug\\44q3q621\\obj\\x86_64\n-DCMAKE_BUILD_TYPE\u003dDebug\n-BD:\\project\\AndroidStudio\\AutoClick\\opencv\\.cxx\\Debug\\44q3q621\\x86_64\n-GNinja\n-DANDROID_STL\u003dc++_shared\njvmArgs : \n\n",
-    "file_": "D:\\project\\AndroidStudio\\AutoClick\\opencv\\libcxx_helper\\CMakeLists.txt",
-    "tag_": "debug|x86_64",
-    "diagnosticCode_": 0,
-    "memoizedIsInitialized": 1,
-    "unknownFields": {
-      "fields": {},
-      "fieldsDescending": {}
-    },
-    "memoizedSize": -1,
-    "memoizedHashCode": 72738274
-  },
-  {
-    "level_": 0,
-    "message_": "Exiting generation of D:\\project\\AndroidStudio\\AutoClick\\opencv\\.cxx\\Debug\\44q3q621\\x86_64\\compile_commands.json.bin normally",
-    "file_": "D:\\project\\AndroidStudio\\AutoClick\\opencv\\libcxx_helper\\CMakeLists.txt",
-    "tag_": "debug|x86_64",
-    "diagnosticCode_": 0,
-    "memoizedIsInitialized": 1,
-    "unknownFields": {
-      "fields": {},
-      "fieldsDescending": {}
-    },
-    "memoizedSize": -1,
-    "memoizedHashCode": -1267277755
-  },
-  {
-    "level_": 0,
-    "message_": "done executing cmake",
-    "file_": "D:\\project\\AndroidStudio\\AutoClick\\opencv\\libcxx_helper\\CMakeLists.txt",
-    "tag_": "debug|x86_64",
-    "diagnosticCode_": 0,
-    "memoizedIsInitialized": 1,
-    "unknownFields": {
-      "fields": {},
-      "fieldsDescending": {}
-    },
-    "memoizedSize": -1,
-    "memoizedHashCode": 154165747
-  },
-  {
-    "level_": 0,
-    "message_": "write command file D:\\project\\AndroidStudio\\AutoClick\\opencv\\.cxx\\Debug\\44q3q621\\x86_64\\metadata_generation_command.txt",
-    "file_": "D:\\project\\AndroidStudio\\AutoClick\\opencv\\libcxx_helper\\CMakeLists.txt",
-    "tag_": "debug|x86_64",
-    "diagnosticCode_": 0,
-    "memoizedIsInitialized": 1,
-    "unknownFields": {
-      "fields": {},
-      "fieldsDescending": {}
-    },
-    "memoizedSize": -1,
-    "memoizedHashCode": -1888261553
+    "memoizedHashCode": -1671913448
   },
   {
     "level_": 0,
@@ -179,6 +39,6 @@
       "fieldsDescending": {}
     },
     "memoizedSize": -1,
-    "memoizedHashCode": 2092238831
+    "memoizedHashCode": -1091735189
   }
 ]

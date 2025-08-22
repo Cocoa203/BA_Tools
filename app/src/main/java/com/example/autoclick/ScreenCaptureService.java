@@ -132,7 +132,6 @@ public class ScreenCaptureService extends Service {
     private int dmClickCount = 0;
     List<Point> CPT_Points = new ArrayList<>();
     private int cptClickCount = 0;
-    private int btCountClick = 0;
     List<Point> SHOP_Points = new ArrayList<>();
     private int shopClickCount = 0;
     List<Point> SH_Points = new ArrayList<>();
@@ -140,6 +139,7 @@ public class ScreenCaptureService extends Service {
     private int btClickCount = 0;
     private int cmClickCount = 0;
     private int dfClickCount = 0;
+    private int spClickCount = 0;
     private int emailClickCount = 0;
     private boolean isSecondBuy = false;
 
@@ -153,7 +153,7 @@ public class ScreenCaptureService extends Service {
     private int screenOrientation;
 
     private long lastTime;
-
+    private boolean isClearPhysic = false;
 
     @Override
     public void onCreate() {
@@ -183,6 +183,9 @@ public class ScreenCaptureService extends Service {
         }
 
         if (intent != null) {
+            if(intent.getBooleanExtra("DO_CLEAR_PHYSIC", false)){
+                isClearPhysic = true;
+            }
             if(intent.getBooleanExtra("DO_MAIL_TASK", false)){
                 taskSequence.add(MatchState.MAIL_TASK);
             }
@@ -1168,7 +1171,11 @@ public class ScreenCaptureService extends Service {
                 if(nextResult.found){
                     SP_State = SpecialState.SP_LEVEL;
                     loadTemplate(currentTemplateMat, R.drawable.sp_level);
-                    loadTemplate(nextTemplateMat, R.drawable.start_quick_fight);
+                    if(isClearPhysic){
+                        loadTemplate(nextTemplateMat, R.drawable.max_value);
+                    } else {
+                        loadTemplate(nextTemplateMat, R.drawable.start_quick_fight);
+                    }
                 }
                 break;
             case SP_LEVEL:
@@ -1178,17 +1185,26 @@ public class ScreenCaptureService extends Service {
                     lastTime = System.currentTimeMillis();
                 }
                 if(nextResult.found){
-                    SP_State = SpecialState.START_QUICK_FIGHT;
-                    loadTemplate(currentTemplateMat, R.drawable.start_quick_fight);
-                    loadTemplate(nextTemplateMat, R.drawable.quick_fight_confirm);
+                    if(isClearPhysic){
+                        SP_State = SpecialState.MAX_VALUE;
+                        loadTemplate(currentTemplateMat, R.drawable.max_value);
+                        loadTemplate(nextTemplateMat, R.drawable.start_quick_fight);
+                    } else {
+                        SP_State = SpecialState.START_QUICK_FIGHT;
+                        loadTemplate(currentTemplateMat, R.drawable.start_quick_fight);
+                        loadTemplate(nextTemplateMat, R.drawable.quick_fight_confirm);
+                    }
+
                 }
                 break;
             case MAX_VALUE:
                 if(result.found){
                     clickWithOffset(result.point);
                 }
-                if(nextResult.found){
+                spClickCount ++;
+                if(nextResult.found && spClickCount>2){
                     SP_State = SpecialState.START_QUICK_FIGHT;
+                    spClickCount = 0;
                     loadTemplate(currentTemplateMat, R.drawable.start_quick_fight);
                     loadTemplate(nextTemplateMat, R.drawable.quick_fight_confirm);
                 }
@@ -1230,6 +1246,7 @@ public class ScreenCaptureService extends Service {
                 }
                 if(nextResult.found){
                     SP_State = SpecialState.SP_IN;
+                    spClickCount = 0;
                     returnValue = true;
                 }
                 break;
