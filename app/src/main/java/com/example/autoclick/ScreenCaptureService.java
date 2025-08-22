@@ -70,14 +70,13 @@ public class ScreenCaptureService extends Service {
     private volatile boolean isSearching = true;
 
     // 状态机相关
-    private enum MatchState { BA_ICON, ENTER_GAME, NOTICE, MAIN_MENU , COFFEE_HOUSE_TASK,
+    private enum MatchState { BA_ICON, ENTER_GAME, NOTICE, MAIN_MENU , MAIL_TASK, COFFEE_HOUSE_TASK,
         SCHEDULE_TASK, SOCIAL_TASK, SHOP_TASK, BOUNTY_TASK, SPECIAL_TASK, COMMUTE_TASK,
         COMPETITION_TASK, DIFFICULT_TASK, DAILY_TASK, DONE, IDLE }
 
     private enum CoffeeState{
         COFFEE_HOUSE ,COFFEE_HOUSE_IN, COFFEE_HOUSE_GET, QUIT_TO_MAIN
     }
-
     private enum DailyState{
         DM_IN, DM_GET, DM_QUIT_TO_MAIN
     }
@@ -110,8 +109,11 @@ public class ScreenCaptureService extends Service {
         DF_IN, WORK_SPACE, DF_MISSION_ICON, DF_ICON, DF_LEFT, DF_LEVEL, MAX_VALUE, START_QUICK_FIGHT,
         QUICK_FIGHT_CONFIRM ,QUICK_FIGHT_FINISH, QUIT_TO_MAIN
     }
+    private enum MailState{
+        MAIL_ICON, MAIL_GET, QUIT_TO_MAIN
+    }
     
-    
+    MailState mailState = MailState.MAIL_ICON;
     DifficultState DF_State = DifficultState.DF_IN;
     ShopState SHOP_State = ShopState.SHOP_IN;
     SocialState SC_State = SocialState.SC_IN;
@@ -135,9 +137,10 @@ public class ScreenCaptureService extends Service {
     private int shopClickCount = 0;
     List<Point> SH_Points = new ArrayList<>();
     private int shClickCount = 0;
-    private int btClickCount;
-    private int cmClickCount;
+    private int btClickCount = 0;
+    private int cmClickCount = 0;
     private int dfClickCount = 0;
+    private int emailClickCount = 0;
     private boolean isSecondBuy = false;
 
     private Mat currentTemplateMat = new Mat();
@@ -161,19 +164,8 @@ public class ScreenCaptureService extends Service {
         handler = new Handler(handlerThread.getLooper());
 
         loadStateTemplate();
-        taskSequence.add(MatchState.COFFEE_HOUSE_TASK);
-        taskSequence.add(MatchState.SCHEDULE_TASK);
-        taskSequence.add(MatchState.SOCIAL_TASK);
-        taskSequence.add(MatchState.SHOP_TASK);
-        taskSequence.add(MatchState.BOUNTY_TASK);
-        taskSequence.add(MatchState.SPECIAL_TASK);
-        taskSequence.add(MatchState.COMMUTE_TASK);
-        taskSequence.add(MatchState.COMPETITION_TASK);
-        taskSequence.add(MatchState.DIFFICULT_TASK);
-        taskSequence.add(MatchState.DAILY_TASK);
         taskIndex = 0;
         Log.d(TAG, "nextTemplateMat w:" + nextTemplateMat.width() + "h:"+nextTemplateMat.height());
-
         // 【新增】记录初始屏幕方向
         screenOrientation = getResources().getConfiguration().orientation;
     }
@@ -191,6 +183,41 @@ public class ScreenCaptureService extends Service {
         }
 
         if (intent != null) {
+            if(intent.getBooleanExtra("DO_MAIL_TASK", false)){
+                taskSequence.add(MatchState.MAIL_TASK);
+            }
+            Log.d(TAG, "DO_COFFEE_TASK:" + intent.getBooleanExtra("DO_COFFEE_TASK", false));
+            if(intent.getBooleanExtra("DO_COFFEE_TASK", false)){
+                taskSequence.add(MatchState.COFFEE_HOUSE_TASK);
+            }
+            if(intent.getBooleanExtra("DO_SCHEDULE_TASK", false)){
+                taskSequence.add(MatchState.SCHEDULE_TASK);
+            }
+            if(intent.getBooleanExtra("DO_SOCIAL_TASK", false)){
+                taskSequence.add(MatchState.SOCIAL_TASK);
+            }
+            if(intent.getBooleanExtra("DO_SHOP_TASK", false)){
+                taskSequence.add(MatchState.SHOP_TASK);
+            }
+            if(intent.getBooleanExtra("DO_BOUNTY_TASK", false)){
+                taskSequence.add(MatchState.BOUNTY_TASK);
+            }
+            if(intent.getBooleanExtra("DO_COMMUTE_TASK", false)){
+                taskSequence.add(MatchState.COMMUTE_TASK);
+            }
+            if(intent.getBooleanExtra("DO_COMPETITION_TASK", false)){
+                taskSequence.add(MatchState.COMPETITION_TASK);
+            }
+            if(intent.getBooleanExtra("DO_DIFFICULT_TASK", false)){
+                taskSequence.add(MatchState.DIFFICULT_TASK);
+            }
+            if(intent.getBooleanExtra("DO_SPECIAL_TASK", false)){
+                taskSequence.add(MatchState.SPECIAL_TASK);
+            }
+            if(intent.getBooleanExtra("DO_DAILY_TASK", false)){
+                taskSequence.add(MatchState.DAILY_TASK);
+            }
+
             // --- 【修改】不再直接使用 intent 数据，而是先保存起来 ---
             this.projectionResultCode = intent.getIntExtra(EXTRA_RESULT_CODE, Activity.RESULT_CANCELED);
             this.projectionData = intent.getParcelableExtra(EXTRA_DATA);
@@ -202,7 +229,6 @@ public class ScreenCaptureService extends Service {
         }
         return START_NOT_STICKY;
     }
-
     // --- 【新增】监听屏幕旋转的方法 ---
     @Override
     public void onConfigurationChanged(Configuration newConfig) {
@@ -302,6 +328,10 @@ public class ScreenCaptureService extends Service {
             case MAIN_MENU:
                 loadTemplate(currentTemplateMat, R.drawable.main_menu);
                 loadTemplate(nextTemplateMat, R.drawable.coffee_house);
+                break;
+            case MAIL_TASK:
+                loadTemplate(currentTemplateMat, R.drawable.mail_icon);
+                loadTemplate(nextTemplateMat, R.drawable.dm_get);
                 break;
             case COFFEE_HOUSE_TASK:
                 loadTemplate(currentTemplateMat, R.drawable.coffee_house);
@@ -472,10 +502,15 @@ public class ScreenCaptureService extends Service {
                         taskIndex ++;
                     } else {
                         state = MatchState.DONE;
-                        loadStateTemplate();
                     }
                 }
                 if (nextResult.found) {
+                }
+                break;
+            case MAIL_TASK:
+                if (mailTask(result, nextResult)) {
+                    state = MatchState.MAIN_MENU;
+                    loadStateTemplate();
                 }
                 break;
             case COFFEE_HOUSE_TASK:
@@ -539,13 +574,14 @@ public class ScreenCaptureService extends Service {
                 }
                 break;
             case DONE:
+                Log.d(TAG, "所有任务已完成，正在停止服务...");
+                stopSelf();
                 break;
             case IDLE:
                 break;
-
         }
         String allStatesLog = String.format(
-                "主状态: %s | 咖啡: %s| 日常: %s | 苦难: %s |竞技: %s | 通缉: %s | | 特别: %s | | 交流: %s | 商店: %s | 社交: %s | 日程: %s | ",
+                "主状态: %s | 咖啡: %s| 日常: %s | 苦难: %s |竞技: %s | 通缉: %s | | 特别: %s | | 交流: %s | 商店: %s | 社交: %s | 日程: %s | | 邮件: %s |",
                 state,
                 CH_State,
                 DM_State,
@@ -556,12 +592,52 @@ public class ScreenCaptureService extends Service {
                 CM_State,
                 SHOP_State,
                 SC_State,
-                SH_State
+                SH_State,
+                mailState
         );
         Log.d(TAG, "--- 当前所有状态 --- " + allStatesLog);
         Log.d(TAG, "相似度: " + result.similarity+"  "+nextResult.similarity);
         Log.d(TAG, "srcMat 尺寸: "+srcMat.width()+"x"+srcMat.height());
         Log.d(TAG, "currentTemplateMat 尺寸: "+currentTemplateMat.width()+"x"+currentTemplateMat.height());
+    }
+
+    private boolean mailTask(MatchResult result, MatchResult nextResult){
+        boolean returnValue = false;
+        switch (mailState){
+            case MAIL_ICON:
+                if(result.found && isClickReady()){
+                    clickWithOffset(result.point);
+                    lastTime = System.currentTimeMillis();
+                }
+                if(nextResult.found){
+                    mailState = MailState.MAIL_GET;
+                    loadTemplate(currentTemplateMat, R.drawable.dm_get);
+                    loadTemplate(nextTemplateMat, R.drawable.quit_to_main);
+                }
+                break;
+            case MAIL_GET:
+                if(result.found){
+                    clickWithOffset(result.point);
+                    emailClickCount ++;
+                }
+                if(nextResult.found && emailClickCount > 3){
+                    mailState = MailState.QUIT_TO_MAIN;
+                    loadTemplate(currentTemplateMat, R.drawable.quit_to_main);
+                    loadTemplate(nextTemplateMat, R.drawable.main_menu);
+                }
+                break;
+            case QUIT_TO_MAIN:
+                if(result.found){
+                    clickWithOffset(result.point);
+                }
+                if(nextResult.found){
+                    DM_State = DailyState.DM_IN;
+                    emailClickCount = 0;
+                    returnValue = true;
+                }
+                break;
+        }
+        return returnValue;
     }
 
     private boolean difficultTask(MatchResult result, MatchResult nextResult){
@@ -1096,9 +1172,10 @@ public class ScreenCaptureService extends Service {
                 }
                 break;
             case SP_LEVEL:
-                if(result.found){
+                if(result.found && isClickReady()){
                     clickWithOffset(new Point(result.point.x + currentTemplateMat.width()*5,
                             result.point.y));
+                    lastTime = System.currentTimeMillis();
                 }
                 if(nextResult.found){
                     SP_State = SpecialState.START_QUICK_FIGHT;
@@ -1417,8 +1494,9 @@ public class ScreenCaptureService extends Service {
         boolean returnValue = false;
         switch (SC_State){
             case SC_IN:
-                if(result.found){
+                if(result.found && isClickReady()){
                     clickWithOffset(result.point);
+                    lastTime = System.currentTimeMillis();
                 }
                 if(nextResult.found){
                     SC_State = SocialState.SC_GROUP;
