@@ -69,13 +69,14 @@ public class ScreenCaptureService extends Service {
     private final String TAG = "JavaLog";
     private volatile boolean isSearching = true;
 
+
     // 状态机相关
     private enum MatchState { BA_ICON, ENTER_GAME, NOTICE, MAIN_MENU , MAIL_TASK, COFFEE_HOUSE_TASK,
         SCHEDULE_TASK, SOCIAL_TASK, SHOP_TASK, BOUNTY_TASK, SPECIAL_TASK, COMMUTE_TASK,
-        COMPETITION_TASK, DIFFICULT_TASK, DAILY_TASK, DONE, IDLE }
+        COMPETITION_TASK, DIFFICULT_TASK, DAILY_TASK, QUIT_TASK, DONE, IDLE }
 
     private enum CoffeeState{
-        COFFEE_HOUSE ,COFFEE_HOUSE_IN, COFFEE_HOUSE_GET, QUIT_TO_MAIN
+        COFFEE_HOUSE ,COFFEE_HOUSE_IN, COFFEE_HOUSE2, COFFEE_HOUSE_GET, QUIT_TO_MAIN
     }
     private enum DailyState{
         DM_IN, DM_GET, DM_QUIT_TO_MAIN
@@ -112,7 +113,9 @@ public class ScreenCaptureService extends Service {
     private enum MailState{
         MAIL_ICON, MAIL_GET, QUIT_TO_MAIN
     }
-    
+    private enum QuitState{
+        BACK, QUIT, BA_ICON
+    }
     MailState mailState = MailState.MAIL_ICON;
     DifficultState DF_State = DifficultState.DF_IN;
     ShopState SHOP_State = ShopState.SHOP_IN;
@@ -124,6 +127,7 @@ public class ScreenCaptureService extends Service {
     DailyState DM_State = DailyState.DM_IN;
     CompetitionState CPT_State = CompetitionState.CPT_IN;
     CoffeeState CH_State = CoffeeState.COFFEE_HOUSE;
+    QuitState quitState = QuitState.BACK;
     private MatchState state = MatchState.BA_ICON;
     List<MatchState> taskSequence = new ArrayList<>();
     private int taskIndex;
@@ -141,8 +145,10 @@ public class ScreenCaptureService extends Service {
     private int dfClickCount = 0;
     private int spClickCount = 0;
     private int emailClickCount = 0;
+    private int foundCount = 0;
     private boolean isSecondBuy = false;
-
+    private boolean isCoffeeHouse2 = false;
+    private boolean isOnlyTouchHead = false;
     private Mat currentTemplateMat = new Mat();
     private Mat nextTemplateMat = new Mat();
     private Mat srcMat = new Mat();
@@ -162,7 +168,6 @@ public class ScreenCaptureService extends Service {
         handlerThread = new HandlerThread(HANDLER_THREAD_NAME);
         handlerThread.start();
         handler = new Handler(handlerThread.getLooper());
-
         loadStateTemplate();
         taskIndex = 0;
         Log.d(TAG, "nextTemplateMat w:" + nextTemplateMat.width() + "h:"+nextTemplateMat.height());
@@ -183,6 +188,9 @@ public class ScreenCaptureService extends Service {
         }
 
         if (intent != null) {
+            if(intent.getBooleanExtra("DO_ONLY_TOUCH_HEAD", false)){
+                isOnlyTouchHead = true;
+            }
             if(intent.getBooleanExtra("DO_CLEAR_PHYSIC", false)){
                 isClearPhysic = true;
             }
@@ -220,7 +228,9 @@ public class ScreenCaptureService extends Service {
             if(intent.getBooleanExtra("DO_DAILY_TASK", false)){
                 taskSequence.add(MatchState.DAILY_TASK);
             }
-
+            if(intent.getBooleanExtra("DO_QUIT_GAME", false)){
+                taskSequence.add(MatchState.QUIT_TASK);
+            }
             // --- 【修改】不再直接使用 intent 数据，而是先保存起来 ---
             this.projectionResultCode = intent.getIntExtra(EXTRA_RESULT_CODE, Activity.RESULT_CANCELED);
             this.projectionData = intent.getParcelableExtra(EXTRA_DATA);
@@ -375,6 +385,10 @@ public class ScreenCaptureService extends Service {
             case DAILY_TASK:
                 loadTemplate(currentTemplateMat, R.drawable.dm_icon);
                 loadTemplate(nextTemplateMat, R.drawable.dm_get);
+                break;
+            case QUIT_TASK:
+                loadTemplate(currentTemplateMat, R.drawable.main_menu);
+                loadTemplate(nextTemplateMat, R.drawable.shop_confirm);
                 break;
             case DONE:
                 break;
@@ -576,6 +590,12 @@ public class ScreenCaptureService extends Service {
                     loadStateTemplate();
                 }
                 break;
+            case QUIT_TASK:
+                if(quitTask(result, nextResult)){
+                    state = MatchState.MAIN_MENU;
+                    loadStateTemplate();
+                }
+                break;
             case DONE:
                 Log.d(TAG, "所有任务已完成，正在停止服务...");
                 stopSelf();
@@ -584,7 +604,7 @@ public class ScreenCaptureService extends Service {
                 break;
         }
         String allStatesLog = String.format(
-                "主状态: %s | 咖啡: %s| 日常: %s | 苦难: %s |竞技: %s | 通缉: %s | | 特别: %s | | 交流: %s | 商店: %s | 社交: %s | 日程: %s | | 邮件: %s |",
+                "主状态: %s | 咖啡: %s| 日常: %s | 困难: %s |竞技: %s | 通缉: %s | | 特别: %s | | 交流: %s | 商店: %s | 社交: %s | 日程: %s | | 邮件: %s |",
                 state,
                 CH_State,
                 DM_State,
@@ -602,6 +622,41 @@ public class ScreenCaptureService extends Service {
         Log.d(TAG, "相似度: " + result.similarity+"  "+nextResult.similarity);
         Log.d(TAG, "srcMat 尺寸: "+srcMat.width()+"x"+srcMat.height());
         Log.d(TAG, "currentTemplateMat 尺寸: "+currentTemplateMat.width()+"x"+currentTemplateMat.height());
+    }
+
+    private boolean quitTask(MatchResult result, MatchResult nextResult){
+        boolean returnValue = false;
+        switch (quitState){
+            case BACK:
+                if(result.found && isClickReady()){
+                    AutoClickAccessibilityService.performBackClick();
+                    lastTime = System.currentTimeMillis();
+                }
+                if(nextResult.found){
+                    quitState = QuitState.QUIT;
+                    loadTemplate(currentTemplateMat, R.drawable.sh_confirm);
+                    loadTemplate(nextTemplateMat, R.drawable.ba_icon);
+                }
+                break;
+            case QUIT:
+                if(result.found && isClickReady()){
+                    clickWithOffset(result.point);
+                    lastTime = System.currentTimeMillis();
+                }
+                if(nextResult.found){
+                    quitState = QuitState.BA_ICON;
+                    loadTemplate(currentTemplateMat, R.drawable.ba_icon);
+                    loadTemplate(nextTemplateMat, R.drawable.quit_to_main);
+                }
+                break;
+            case BA_ICON:
+                if(result.found){
+                    quitState = QuitState.BACK;
+                    returnValue = true;
+                }
+                break;
+        }
+        return returnValue;
     }
 
     private boolean mailTask(MatchResult result, MatchResult nextResult){
@@ -777,7 +832,7 @@ public class ScreenCaptureService extends Service {
                 if (nextResult.found) {
                     CH_State = CoffeeState.COFFEE_HOUSE_IN;
                     loadTemplate(currentTemplateMat, R.drawable.coffee_house_in);
-                    loadTemplate(nextTemplateMat, R.drawable.coffee_house_get);
+                    loadTemplate(nextTemplateMat, R.drawable.coffee_house2);
                     points = createClickPointGrid(srcMat);
                 }
                 break;
@@ -795,25 +850,49 @@ public class ScreenCaptureService extends Service {
                     }
                 }
                 skipLikingDegreeUp(srcMat);
-                if (result.found && isClickReady()) {
+                if (result.found && isClickReady() && isCoffeeHouse2) {
                     if(chClickCount >= points.size()){
-                        result.point.x = srcMat.width() - 1.5 * result.point.x;
+                        result.point.x = srcMat.width() - 2 * result.point.x;
                         clickWithOffset(result.point);
                         lastTime = System.currentTimeMillis();
                     }
                 }
-                if (nextResult.found) {
-                    CH_State = CoffeeState.COFFEE_HOUSE_GET;
-                    chClickCount = 0;
-                    points.clear();
-                    loadTemplate(currentTemplateMat, R.drawable.coffee_house_get);
-                    loadTemplate(nextTemplateMat, R.drawable.quit_to_main);
+                if (nextResult.found && chClickCount >= points.size()) {
+                    if(isCoffeeHouse2){
+                        CH_State = CoffeeState.COFFEE_HOUSE_GET;
+                        chClickCount = 0;
+                        loadTemplate(currentTemplateMat, R.drawable.coffee_house_get);
+                        loadTemplate(nextTemplateMat, R.drawable.quit_to_main);
+                    } else {
+                        CH_State = CoffeeState.COFFEE_HOUSE2;
+                        chClickCount = 0;
+                        loadTemplate(currentTemplateMat, R.drawable.coffee_house2);
+                        loadTemplate(nextTemplateMat, R.drawable.coffee_house_in);
+                    }
+                }
+                break;
+            case COFFEE_HOUSE2:
+                if(result.found && isClickReady() && !isCoffeeHouse2){
+                    clickWithOffset(result.point);
+                    lastTime = System.currentTimeMillis();
+                    isCoffeeHouse2 = true;
+                }
+                if(nextResult.found && isCoffeeHouse2){
+                    foundCount ++;
+                    if(foundCount > 2){
+                        foundCount = 0;
+                        CH_State = CoffeeState.COFFEE_HOUSE_IN;
+                        loadTemplate(currentTemplateMat, R.drawable.coffee_house_in);
+                        loadTemplate(nextTemplateMat, R.drawable.coffee_house_get);
+                    }
                 }
                 break;
             case COFFEE_HOUSE_GET:
                 if (result.found && isClickReady()) {
-                    clickWithOffset(result.point);
-                    lastTime = System.currentTimeMillis();
+                    if(!isOnlyTouchHead) {
+                        clickWithOffset(result.point);
+                        lastTime = System.currentTimeMillis();
+                    }
                     chClickCount ++;
                 }
                 if (nextResult.found && chClickCount !=0) {
@@ -829,6 +908,8 @@ public class ScreenCaptureService extends Service {
                 }
                 if(nextResult.found){
                     CH_State = CoffeeState.COFFEE_HOUSE;
+                    points.clear();
+                    isCoffeeHouse2 = false;
                     chClickCount = 0;
                     returnValue = true;
                 }
@@ -1664,7 +1745,7 @@ public class ScreenCaptureService extends Service {
 
     private List<Point> createClickPointGrid(Mat srcMat) {
         // --- 参数定义 ---
-        final int gridWidthPixels = 1800;   // 网格覆盖的宽度（1000像素）
+        final int gridWidthPixels = 2000;   // 网格覆盖的宽度（1000像素）
         final int gridHeightPixels = 1000;  // 网格覆盖的高度（1800像素）
         final int spacingX = 100;            // 每个点之间的间隔（100像素）
         final int spacingY = 200;

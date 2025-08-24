@@ -142,6 +142,34 @@ public class AutoClickAccessibilityService extends AccessibilityService {
         }, null); // Handler 可以为 null，回调会在主线程执行
     }
 
+    public static boolean performBackClick() {
+        // 检查服务实例是否存在
+        if (instance == null) {
+            Log.e(TAG, "无法执行返回操作：无障碍服务未连接！");
+            return false;
+        }
+
+        Log.d(TAG, "正在执行全局返回操作...");
+        // 调用系统预设的全局返回动作
+        return instance.performGlobalAction(AccessibilityService.GLOBAL_ACTION_BACK);
+    }
+
+    /**
+     * 模拟用户按下“主页”键 (Home)
+     * @return 如果动作成功发送，返回 true；如果服务未连接，返回 false。
+     */
+    public static boolean performHomeClick() {
+        // 检查服务实例是否存在
+        if (instance == null) {
+            Log.e(TAG, "无法返回主菜单：无障碍服务未连接！");
+            return false;
+        }
+
+        Log.d(TAG, "正在执行返回主菜单操作...");
+        // 调用系统预设的全局主页动作
+        return instance.performGlobalAction(AccessibilityService.GLOBAL_ACTION_HOME);
+    }
+
     /**
      * --- 【新增】公开的静态方法，用于查询服务是否空闲 ---
      * @return 如果没有正在执行的手势，返回 true

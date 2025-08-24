@@ -4,17 +4,19 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    tools:context=".MainActivity">
+    tools:context=".MainActivity"
+    tools:layout_editor_absoluteX="4dp"
+    tools:layout_editor_absoluteY="62dp">
 
-<!--    <TextView-->
-<!--        android:id="@+id/sample_text"-->
-<!--        android:layout_width="wrap_content"-->
-<!--        android:layout_height="wrap_content"-->
-<!--        android:text="Hello World!"-->
-<!--        app:layout_constraintBottom_toBottomOf="parent"-->
-<!--        app:layout_constraintLeft_toLeftOf="parent"-->
-<!--        app:layout_constraintRight_toRightOf="parent"-->
-<!--        app:layout_constraintTop_toTopOf="parent" />-->
+    <!--    <TextView-->
+    <!--        android:id="@+id/sample_text"-->
+    <!--        android:layout_width="wrap_content"-->
+    <!--        android:layout_height="wrap_content"-->
+    <!--        android:text="Hello World!"-->
+    <!--        app:layout_constraintBottom_toBottomOf="parent"-->
+    <!--        app:layout_constraintLeft_toLeftOf="parent"-->
+    <!--        app:layout_constraintRight_toRightOf="parent"-->
+    <!--        app:layout_constraintTop_toTopOf="parent" />-->
 
     <ImageView
         android:id="@+id/image_view_captured"
@@ -59,8 +61,8 @@
         android:id="@+id/btn_stop_capture"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="停止屏幕捕获"
         android:checked="true"
+        android:text="停止屏幕捕获"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
@@ -71,8 +73,8 @@
         android:id="@+id/cb_coffee_task"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="咖啡厅"
         android:checked="true"
+        android:text="咖啡厅"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintHorizontal_bias="0.05"
@@ -84,8 +86,8 @@
         android:id="@+id/cb_schedule_task"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="日程"
         android:checked="true"
+        android:text="日程"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintHorizontal_bias="0.05"
@@ -94,13 +96,12 @@
         app:layout_constraintVertical_bias="0.114" />
 
 
-
     <CheckBox
         android:id="@+id/cb_special_task"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="特别委托"
         android:checked="true"
+        android:text="特别委托"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintHorizontal_bias="0.05"
@@ -112,8 +113,8 @@
         android:id="@+id/cb_competition_task"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="战术对抗赛"
         android:checked="true"
+        android:text="战术对抗赛"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintHorizontal_bias="0.05"
@@ -125,8 +126,8 @@
         android:id="@+id/cb_commute_task"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="学院交流会"
         android:checked="true"
+        android:text="学院交流会"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintHorizontal_bias="0.05"
@@ -138,8 +139,8 @@
         android:id="@+id/cb_difficult_task"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="困难任务"
         android:checked="true"
+        android:text="困难任务"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintHorizontal_bias="0.05"
@@ -151,8 +152,8 @@
         android:id="@+id/cb_daily_task"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="日常任务领取"
         android:checked="true"
+        android:text="日常任务领取"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintHorizontal_bias="0.05"
@@ -164,8 +165,8 @@
         android:id="@+id/cb_shop_task"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="商店"
         android:checked="true"
+        android:text="商店"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintHorizontal_bias="0.05"
@@ -177,8 +178,8 @@
         android:id="@+id/cb_bounty_task"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="悬赏通缉"
         android:checked="true"
+        android:text="悬赏通缉"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintHorizontal_bias="0.05"
@@ -190,8 +191,8 @@
         android:id="@+id/cb_social_task"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="小组签到"
         android:checked="true"
+        android:text="小组签到"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintHorizontal_bias="0.05"
@@ -203,8 +204,8 @@
         android:id="@+id/cb_mail_task"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="邮件领取"
         android:checked="false"
+        android:text="邮件领取"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintHorizontal_bias="0.05"
@@ -214,13 +215,39 @@
 
     <CheckBox
         android:id="@+id/cb_clear_physic"
-        android:layout_width="wrap_content"
+        android:layout_width="200dp"
         android:layout_height="wrap_content"
         android:checked="false"
         android:text="清除全部体力(刷经验书)"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintHorizontal_bias="0.321"
+        app:layout_constraintHorizontal_bias="0.322"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintVertical_bias="0.114" />
+
+    <CheckBox
+        android:id="@+id/cb_quit_game"
+        android:layout_width="200dp"
+        android:layout_height="wrap_content"
+        android:checked="false"
+        android:text="自动退出游戏"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintHorizontal_bias="0.322"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintVertical_bias="0.204" />
+
+    <CheckBox
+        android:id="@+id/cb_only_touch_head"
+        android:layout_width="200dp"
+        android:layout_height="wrap_content"
+        android:checked="false"
+        android:text="只摸头"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintHorizontal_bias="0.322"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent"
         app:layout_constraintVertical_bias="0.023" />
